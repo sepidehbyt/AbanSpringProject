@@ -49,7 +49,7 @@ public class AppController {
                 return "the action " + request.getAction() +
                         " is not CRUD !!";
             case "3": //insert succeed
-                return "SUCCESSFUL insertion :D \n" + request;
+                return "SUCCESSFUL insertion :D by id = " + response.get("ID")+ " :D\n" + request.getParams();
             case "4": //read without id or more than two parameters
                 return "not an acceptable read request !!";
             case "5": //successfull read

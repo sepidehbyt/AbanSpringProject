@@ -30,7 +30,7 @@ public class Functional  {
 
         classes = new SpringClassScanner().findAnnotatedClasses("com.example.demo.domain"); // {Customer=Human}
 
-        if(classes.keySet().contains(table)){
+        if(classes.keySet().contains(table)) {
             response.put("code", "0");
             return response;
         }
@@ -60,6 +60,14 @@ public class Functional  {
                 System.out.println(insertSQL);
                 jdbcTemplate.execute(insertSQL);
                 response.put("code", "3");
+                jdbcTemplate.query("SELECT LAST_INSERT_ID();", new RowMapper<String>() {
+                    public String mapRow(ResultSet rs, int rowNum) throws SQLException {
+                        response.put("ID", rs.getString(1));
+                        return "";
+                    }
+                });
+
+
                 return response;
 
             case "read":
