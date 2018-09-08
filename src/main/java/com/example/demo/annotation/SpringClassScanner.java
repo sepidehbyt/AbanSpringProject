@@ -35,7 +35,7 @@ public class SpringClassScanner {
         try {
             Class<?> cl = Class.forName(beanDef.getBeanClassName());
             Sepideh findable = cl.getAnnotation(Sepideh.class);
-            response.put(cl.getSimpleName(), findable.value());
+            response.put(cl.getSimpleName().toLowerCase(), findable.value().toLowerCase());
         } catch (Exception e) {
             System.err.println("Got exception: " + e.getMessage());
         }

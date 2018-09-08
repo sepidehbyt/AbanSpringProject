@@ -18,163 +18,7 @@ public class Functional  {
         this.jdbcTemplate = jdbcTemplate;
     }
 
-    public Map<String, String> performDB(Request request) {
-
-        Map<String, String> response = new HashMap<>();
-        Map<String, String> params = request.getParams();
-        Map<String, String> classes;
-
-        String action = request.getAction().toLowerCase();
-        String table = request.getTable().toLowerCase();
-        List<String> columns = getColumnsOfDB(request.getTable());
-
-        classes = new SpringClassScanner().findAnnotatedClasses("com.example.demo.domain"); // {Customer=Human}
-
-        if(classes.keySet().contains(table)) {
-            response.put("code", "0");
-            return response;
-        }
-
-        if(!action.equals("create") && !action.equals("read") && !action.equals("update") && !action.equals("delete")) {
-            response.put("code", "2");
-            return response;
-        }
-
-        for (String param : params.keySet()) {
-            if (!columns.contains(param)) {
-                response.put("code", "1");
-                response.put("reason", param);
-                return response;
-            }
-        }
-
-        switch (request.getAction().toLowerCase()) {
-            case "create":
-
-                if(params.keySet().contains("id")) {
-                    response.put("code", "8");
-                    return response;
-                }
-
-                String insertSQL = createInsertQuery(table, params);
-                System.out.println(insertSQL);
-                jdbcTemplate.execute(insertSQL);
-                response.put("code", "3");
-                jdbcTemplate.query("SELECT LAST_INSERT_ID();", new RowMapper<String>() {
-                    public String mapRow(ResultSet rs, int rowNum) throws SQLException {
-                        response.put("ID", rs.getString(1));
-                        return "";
-                    }
-                });
-
-
-                return response;
-
-            case "read":
-
-                if(params.keySet().size() > 1 || !params.keySet().contains("id")) {
-                    response.put("code", "4");
-                    return response;
-                }
-
-                String readSQL = createReadQuery(table, params, columns);
-                System.out.println(readSQL);
-                response.put("code", "5");
-                jdbcTemplate.query(readSQL, new RowMapper<String>() {
-                    public String mapRow(ResultSet rs, int rowNum) throws SQLException {
-                        for (int i = 1; i < columns.size(); i++) {
-                            response.put(columns.get(i), rs.getString(i));
-                        }
-                        return "";
-                    }
-                });
-                return response;
-
-            case "update":
-
-                if(!params.keySet().contains("id") || params.keySet().size() <= 1) {
-                    response.put("code", "6");
-                    return response;
-                }
-
-                String updateSQL = createUpdateQuery(table, params);
-                System.out.println(updateSQL);
-                response.put("code", "7");
-                jdbcTemplate.execute(updateSQL);
-                readSQL = createReadQuery(table, params, columns);
-                jdbcTemplate.query(readSQL, new RowMapper<String>() {
-                    public String mapRow(ResultSet rs, int rowNum) throws SQLException {
-                        for (int i = 1; i < columns.size(); i++) {
-                            response.put(columns.get(i), rs.getString(i));
-                        }
-                        return "";
-                    }
-                });
-                return response;
-
-            case "delete":
-
-                if(params.keySet().size() > 1 || !params.keySet().contains("id")) {
-                    response.put("code", "9");
-                    return response;
-                }
-
-                readSQL = createReadQuery(table, params, columns);
-                System.out.println(readSQL);
-                jdbcTemplate.query(readSQL, new RowMapper<String>() {
-                    public String mapRow(ResultSet rs, int rowNum) throws SQLException {
-                        for (int i = 1; i < columns.size(); i++) {
-                            response.put(columns.get(i), rs.getString(i));
-                        }
-                        return "";
-                    }
-                });
-                if (response.keySet().size() <= 1) {
-                    response.put("code", "11");
-                }
-                else {
-                    response.put("code", "10");
-                    String deleteSQL = createDeleteQuery(table, params);
-                    jdbcTemplate.execute(deleteSQL);
-                }
-                return response;
-        }
-
-        return response;
-
-    }
-
-    public List<String> getColumnsOfDB(String table) {
-
-        List<String> data;
-
-        data = jdbcTemplate.query("show columns from " + table +  ";", new RowMapper<String>(){
-            public String mapRow(ResultSet rs, int rowNum)
-                    throws SQLException {
-                return rs.getString(1);
-            }
-        });
-
-        return data;
-   }
-
-    public boolean checkForTable(String table) {
-
-        return (boolean)jdbcTemplate.query("show tables;", new ResultSetExtractor<Object>() {
-
-            @Override
-            public Object extractData(ResultSet rs) throws SQLException, DataAccessException {
-                while (rs.next()) {
-                    if (rs.getString(1).equalsIgnoreCase(table)) {
-                        return true;
-                    }
-                }
-                return false;
-            }
-        });
-    }
-
-    public String createInsertQuery(String table, Map<String, String> params) {
+    private String createInsertQuery(String table, Map<String, String> params) {
         String insertSQL = "";
         insertSQL += "insert into " + table + " (";
 
@@ -195,45 +39,133 @@ public class Functional  {
         return insertSQL;
     }
 
-    public String createReadQuery(String table, Map<String, String> params, List<String> columns) {
+    private String createReadQuery(String table, String ID ){
         String readSQL = "";
-        readSQL += "select ";
-
-        for (String column : columns) {
-            if(!column.equals("id")) {
-                readSQL += (column + ", ");
-            }
-        }
-
-        readSQL = readSQL.substring(0, readSQL.length() - 2);
-        readSQL += " from " + table +" where id = \"" + params.get("id") +"\";";
-
+        readSQL += "select * from " + table +" where id = \"" + ID +"\";";
         return readSQL;
     }
 
-    public String createUpdateQuery(String table, Map<String, String> params) {
+    private String createUpdateQuery(String table, Map<String, String> params, String ID) {
         String updateSQL = "";
         updateSQL += "update " + table + " set ";
 
         for (String param : params.keySet()) {
-            if(!param.equals("id")) {
-                updateSQL += (param + "=\"" + params.get(param) + "\", ");
-            }
+            updateSQL += (param + "=\"" + params.get(param) + "\", ");
         }
 
         updateSQL = updateSQL.substring(0, updateSQL.length() - 2);
-        updateSQL += " where id = \"" + params.get("id") +"\";";
+        updateSQL += " where id = \"" + ID +"\";";
 
         return updateSQL;
     }
 
-    public String createDeleteQuery(String table, Map<String, String> params) {
+    private String createDeleteQuery(String table,String ID) {
         String deleteSQL = "";
         deleteSQL += "delete from " + table;
 
-        deleteSQL += " where id = \"" + params.get("id") +"\";";
+        deleteSQL += " where id = \"" + ID +"\";";
 
         return deleteSQL;
+    }
+
+    public Map<String, String> performCreateQuery(String table, Map<String, String> params) {
+
+        Map<String, String> classes = new SpringClassScanner().findAnnotatedClasses("com.example.demo.domain"); // {Customer=Human}
+        Map<String, String> response = new HashMap<>();
+        table = classes.get(table);
+
+        String insertSQL = createInsertQuery(table, params);
+        System.out.println(insertSQL);
+        try {
+            jdbcTemplate.execute(insertSQL);
+            response.put("status", "success");
+            jdbcTemplate.query("SELECT LAST_INSERT_ID();", new RowMapper<String>() {
+                public String mapRow(ResultSet rs, int rowNum) throws SQLException {
+                    response.put("id", rs.getString(1));
+                    return "";
+                }
+            });
+        }
+        catch (DataAccessException e) {
+            response.put("status", "failure");
+        }
+        return response;
+    }
+
+    public Map<String, String> performReadQuery(String table,String ID) {
+
+        Map<String, String> classes = new SpringClassScanner().findAnnotatedClasses("com.example.demo.domain"); // {Customer=Human}
+        Map<String, String> response = new HashMap<>();
+        table = classes.get(table);
+
+        String readSQL = createReadQuery(table, ID);
+        System.out.println(readSQL);
+
+        try {
+            List<Map<String, Object>> list = jdbcTemplate.queryForList(readSQL);
+            for (Map<String, Object> row : list) {
+                Map tmp = new HashMap(row);
+                tmp.keySet().removeAll(response.keySet());
+                response.putAll(tmp);
+                System.out.println(row);
+            }
+
+            //System.out.println(response + " " + list.isEmpty() + " " + list.size() + " " + list);
+
+            if(list.isEmpty())
+                response.put("status", "empty");
+            else
+                response.put("status", "success");
+
+        }
+        catch (DataAccessException e) {
+            response.put("status", "failure");
+        }
+        return response;
+    }
+
+    public Map<String, String> performUpdateQuery(String table, String ID, Map<String, String> params) {
+
+        Map<String, String> classes = new SpringClassScanner().findAnnotatedClasses("com.example.demo.domain"); // {Customer=Human}
+        Map<String, String> response = new HashMap<>();
+        table = classes.get(table);
+
+        String updateSQL = createUpdateQuery(table, params, ID);
+        System.out.println(updateSQL);
+
+        String readSQL = createReadQuery(table, ID);
+        System.out.println(readSQL);
+
+        try {
+            jdbcTemplate.execute(updateSQL);
+            response = performReadQuery(table, ID);
+            response.put("status", "success");
+        }
+        catch (DataAccessException e) {
+            response.put("status", "failure");
+        }
+        return response;
+    }
+
+    public Map<String, String> performDeleteQuery(String table,String ID) {
+
+        Map<String, String> classes = new SpringClassScanner().findAnnotatedClasses("com.example.demo.domain"); // {Customer=Human}
+        Map<String, String> response = new HashMap<>();
+        table = classes.get(table);
+
+        String deleteSQL = createDeleteQuery(table, ID);
+
+        try {
+
+            jdbcTemplate.execute(deleteSQL);
+            response.put("status", "success");
+            return response;
+
+        }
+        catch (DataAccessException e) {
+            response.put("status", "failure");
+        }
+        return response;
     }
 
 }
